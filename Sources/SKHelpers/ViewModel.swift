@@ -38,10 +38,10 @@ public actor PostService: PostProtocol {
 
 @MainActor
 public class ViewModel: ObservableObject {
-    @Published var isload = false
-    @Published var error = ""
-    @Published var query = ""
-    @Published var filteredPosts: [Post] = []
+    @Published public var isload = false
+    @Published public var error = ""
+    @Published public var query = ""
+    @Published public var filteredPosts: [Post] = []
     private let service: PostService?
     private var searchTask: Task<Void, Never>?
     var cancellable = Set<AnyCancellable>()
@@ -64,7 +64,7 @@ public class ViewModel: ObservableObject {
         
     }
     
-    func getPosts() async {
+    public func getPosts() async {
         self.isload = true
         do {
             let posts = try await self.service?.getPost() ?? []
