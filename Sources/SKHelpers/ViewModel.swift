@@ -1,82 +1,153 @@
 //
-//  Untitled.swift
+//  ViewModel.swift
 //  ViewModel
 //
 //  Created by Senthil on 07/09/26.
 //
+
 import Combine
+import Foundation
 import SwiftUI
 
+// MARK: - Model
+
 public struct Post: Codable, Sendable {
+
     public let userID: Int
     public let id: Int
     public let title: String
     public let body: String
-    
+
+    public init(
+        userID: Int,
+        id: Int,
+        title: String,
+        body: String
+    ) {
+        self.userID = userID
+        self.id = id
+        self.title = title
+        self.body = body
+    }
+
     enum CodingKeys: String, CodingKey {
         case userID = "userId"
-        case id = "id"
-        case title = "title"
-        case body = "body"
+        case id
+        case title
+        case body
     }
 }
 
-public protocol PostProtocol {
+// MARK: - Service Protocol
+
+public protocol PostProtocol: Sendable {
     func getPost() async throws -> [Post]
 }
 
+// MARK: - Service
+
 public actor PostService: PostProtocol {
+
     public init() {}
 
     public func getPost() async throws -> [Post] {
-        guard let url = URL(string: "https://jsonplaceholder.typicode.com/posts")  else { return [] }
+
+        guard let url = URL(
+            string: "https://jsonplaceholder.typicode.com/posts"
+        ) else {
+            return []
+        }
+
         let (data, _) = try await URLSession.shared.data(from: url)
-        let post = try JSONDecoder().decode([Post].self, from: data)
-        return post
+
+        let posts = try JSONDecoder().decode(
+            [Post].self,
+            from: data
+        )
+
+        return posts
     }
 }
 
+// MARK: - ViewModel
+
 @MainActor
-public class ViewModel: ObservableObject {
-    @Published public var isload = false
-    @Published public var error = ""
+public final class ViewModel: ObservableObject {
+
+    @Published public private(set) var isLoading = false
+    @Published public private(set) var error = ""
     @Published public var query = ""
-    @Published public var filteredPosts: [Post] = []
-    private let service: PostService?
+    @Published public private(set) var filteredPosts: [Post] = []
+
+    private let service: PostService
+
     private var searchTask: Task<Void, Never>?
-    var cancellable = Set<AnyCancellable>()
-    
-    public init(service: PostService?) {
+    private var cancellables = Set<AnyCancellable>()
+
+    public init(service: PostService) {
+
         self.service = service
+
         $query
-            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .debounce(
+                for: .milliseconds(500),
+                scheduler: RunLoop.main
+            )
             .removeDuplicates()
-            .sink { [weak self] value in
-                guard let self = self else { return }
-                if self.query.count == 0 || self.query.count > 4 {
-                    searchTask?.cancel()
-                    searchTask = Task {
-                        await self.getPosts()
+            .sink { [weak self] query in
+
+                guard let self else {
+                    return
+                }
+
+                self.searchTask?.cancel()
+
+                guard query.isEmpty || query.count > 4 else {
+                    return
+                }
+
+                self.searchTask = Task { @MainActor [weak self] in
+
+                    guard let self else {
+                        return
                     }
+
+                    await self.getPosts()
                 }
             }
-            .store(in: &cancellable)
-        
+            .store(in: &cancellables)
     }
-    
+
     public func getPosts() async {
-        self.isload = true
+
+        isLoading = true
+        error = ""
+
         do {
-            let posts = try await self.service?.getPost() ?? []
+
+            let posts = try await service.getPost()
+
             if query.isEmpty {
-                self.filteredPosts = posts
+
+                filteredPosts = posts
+
             } else {
-                filteredPosts = posts.filter{$0.title.localizedCaseInsensitiveContains(query) || $0.body.localizedCaseInsensitiveContains(query) }
+
+                filteredPosts = posts.filter {
+                    $0.title.localizedCaseInsensitiveContains(query) ||
+                    $0.body.localizedCaseInsensitiveContains(query)
+                }
             }
-            self.isload = false
-        } catch(let error) {
+
+        } catch {
+
             self.error = error.localizedDescription
-            self.isload = false
         }
+
+        isLoading = false
+    }
+
+    deinit {
+        searchTask?.cancel()
     }
 }
