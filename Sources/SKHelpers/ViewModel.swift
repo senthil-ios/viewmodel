@@ -8,10 +8,10 @@ import Combine
 import SwiftUI
 
 public struct Post: Codable, Sendable {
-    let userID: Int
-    let id: Int
-    let title: String
-    let body: String
+    public let userID: Int
+    public let id: Int
+    public let title: String
+    public let body: String
     
     enum CodingKeys: String, CodingKey {
         case userID = "userId"
