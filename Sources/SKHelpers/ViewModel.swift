@@ -46,7 +46,7 @@ public class ViewModel: ObservableObject {
     private var searchTask: Task<Void, Never>?
     var cancellable = Set<AnyCancellable>()
     
-    init(service: PostService?) {
+    public init(service: PostService?) {
         self.service = service
         $query
             .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
