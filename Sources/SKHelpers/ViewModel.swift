@@ -26,6 +26,8 @@ public protocol PostProtocol {
 }
 
 public actor PostService: PostProtocol {
+    public init() {}
+
     public func getPost() async throws -> [Post] {
         guard let url = URL(string: "https://jsonplaceholder.typicode.com/posts")  else { return [] }
         let (data, _) = try await URLSession.shared.data(from: url)
